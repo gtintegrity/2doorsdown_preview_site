@@ -66,13 +66,31 @@ jobs:
         run: |
           git checkout -b "${{ steps.branch-name.outputs.branch_name }}"
           git add site/
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git commit -m "Extract site content from ${{ steps.find-zip.outputs.zip_file }}"
       
+      - name: Check if commit was made
+        id: check-commit
+        run: |
+          # Check if we're still on the new branch and have commits
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$CURRENT_BRANCH" = "${{ steps.branch-name.outputs.branch_name }}" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Push branch
+        if: steps.check-commit.outputs.has_changes == 'true'
         run: |
           git push origin "${{ steps.branch-name.outputs.branch_name }}"
       
       - name: Create Pull Request
+        if: steps.check-commit.outputs.has_changes == 'true'
         uses: actions/github-script@v7
         with:
           script: |

@@ -98,18 +98,28 @@ fi
 
 # Flatten top level if there's only one directory at the root
 echo "Checking if top level needs flattening..."
-ITEMS_COUNT=$(ls -A "$OUTPUT_DIR" | wc -l)
+ITEMS_COUNT=$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 | wc -l)
 
 if [ "$ITEMS_COUNT" -eq 1 ]; then
-    ITEM=$(ls -A "$OUTPUT_DIR")
-    ITEM_PATH="$OUTPUT_DIR/$ITEM"
+    ITEM_PATH=$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)
     
     if [ -d "$ITEM_PATH" ]; then
-        echo "Flattening single top-level directory: $ITEM"
+        echo "Flattening single top-level directory: $(basename "$ITEM_PATH")"
         # Move contents up one level using a portable approach
+        # Use a temporary variable to track success
+        FLATTEN_SUCCESS=true
         find "$ITEM_PATH" -mindepth 1 -maxdepth 1 -print0 | while IFS= read -r -d '' item; do
-            mv "$item" "$OUTPUT_DIR/"
-        done
+            if ! mv "$item" "$OUTPUT_DIR/"; then
+                echo "Error: Failed to move $item"
+                exit 1
+            fi
+        done || FLATTEN_SUCCESS=false
+        
+        if [ "$FLATTEN_SUCCESS" = "false" ]; then
+            echo "Error: Failed to flatten directory"
+            exit 1
+        fi
+        
         # Remove the now-empty directory
         rmdir "$ITEM_PATH"
         echo "Top level flattened successfully"
