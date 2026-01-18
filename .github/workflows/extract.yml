@@ -74,12 +74,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Get the base branch - use default branch for releases, or extract from ref for pushes
+            let baseBranch;
+            if (context.eventName === 'release') {
+              baseBranch = context.payload.repository.default_branch;
+            } else {
+              baseBranch = context.ref.replace('refs/heads/', '');
+            }
+            
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `Extract site content from ${{ steps.find-zip.outputs.zip_file }}`,
               head: "${{ steps.branch-name.outputs.branch_name }}",
-              base: context.ref.replace('refs/heads/', ''),
+              base: baseBranch,
               body: `This PR contains the extracted site content from \`${{ steps.find-zip.outputs.zip_file }}\`.\n\nExtracted by the automated extract workflow.\n\nCommit: ${context.sha}`
             });
             console.log(`Pull request created: ${pr.html_url}`);
