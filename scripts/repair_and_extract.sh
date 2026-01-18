@@ -108,7 +108,7 @@ if [ "$ITEMS_COUNT" -eq 1 ]; then
         echo "Flattening single top-level directory: $ITEM"
         # Move contents up one level
         # Use find to safely move files and avoid glob expansion issues
-        find "$ITEM_PATH" -mindepth 1 -maxdepth 1 -exec mv {} "$OUTPUT_DIR/" \;
+        find "$ITEM_PATH" -mindepth 1 -maxdepth 1 -exec mv -t "$OUTPUT_DIR/" {} +
         # Remove the now-empty directory
         rmdir "$ITEM_PATH"
         echo "Top level flattened successfully"

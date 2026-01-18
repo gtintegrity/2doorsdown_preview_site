@@ -25,11 +25,13 @@ jobs:
       - name: Find horizons-export ZIP file
         id: find-zip
         run: |
-          ZIP_FILE=$(ls horizons-export-*.zip 2>/dev/null | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 1 -name 'horizons-export-*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
             echo "Error: No horizons-export-*.zip file found"
             exit 1
           fi
+          # Remove ./ prefix if present
+          ZIP_FILE="${ZIP_FILE#./}"
           echo "zip_file=$ZIP_FILE" >> $GITHUB_OUTPUT
           echo "Found ZIP file: $ZIP_FILE"
       
@@ -64,7 +66,7 @@ jobs:
         run: |
           git checkout -b "${{ steps.branch-name.outputs.branch_name }}"
           git add site/
-          git commit -m "Extract site content from ${{ steps.find-zip.outputs.zip_file }} ($(git rev-parse --short HEAD))"
+          git commit -m "Extract site content from ${{ steps.find-zip.outputs.zip_file }}"
       
       - name: Push branch
         run: |
