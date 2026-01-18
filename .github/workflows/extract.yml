@@ -1,0 +1,85 @@
+name: Extract Site Content
+
+on:
+  push:
+    paths:
+      - 'horizons-export-*.zip'
+  release:
+    types: [published]
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip unzip p7zip-full
+      
+      - name: Find horizons-export ZIP file
+        id: find-zip
+        run: |
+          ZIP_FILE=$(ls horizons-export-*.zip 2>/dev/null | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Error: No horizons-export-*.zip file found"
+            exit 1
+          fi
+          echo "zip_file=$ZIP_FILE" >> $GITHUB_OUTPUT
+          echo "Found ZIP file: $ZIP_FILE"
+      
+      - name: Run extraction script
+        run: |
+          chmod +x scripts/repair_and_extract.sh
+          ./scripts/repair_and_extract.sh "${{ steps.find-zip.outputs.zip_file }}"
+      
+      - name: Verify extraction
+        run: |
+          if [ ! -d "site" ]; then
+            echo "Error: site directory was not created"
+            exit 1
+          fi
+          echo "Extracted content:"
+          ls -la site/
+      
+      - name: Create branch name
+        id: branch-name
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BRANCH_NAME="extract/site-${SHORT_SHA}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Branch name: $BRANCH_NAME"
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Commit extracted site
+        run: |
+          git checkout -b "${{ steps.branch-name.outputs.branch_name }}"
+          git add site/
+          git commit -m "Extract site content from ${{ steps.find-zip.outputs.zip_file }} ($(git rev-parse --short HEAD))"
+      
+      - name: Push branch
+        run: |
+          git push origin "${{ steps.branch-name.outputs.branch_name }}"
+      
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Extract site content from ${{ steps.find-zip.outputs.zip_file }}`,
+              head: "${{ steps.branch-name.outputs.branch_name }}",
+              base: context.ref.replace('refs/heads/', ''),
+              body: `This PR contains the extracted site content from \`${{ steps.find-zip.outputs.zip_file }}\`.\n\nExtracted by the automated extract workflow.\n\nCommit: ${context.sha}`
+            });
+            console.log(`Pull request created: ${pr.html_url}`);
