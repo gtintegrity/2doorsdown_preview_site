@@ -10,6 +10,9 @@ on:
 jobs:
   extract:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # For pushing branches and checking out code with LFS
+      pull-requests: write  # For creating pull requests
     
     steps:
       - name: Checkout repository
