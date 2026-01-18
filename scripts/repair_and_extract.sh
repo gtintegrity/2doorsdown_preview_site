@@ -106,16 +106,19 @@ if [ "$ITEMS_COUNT" -eq 1 ]; then
     if [ -d "$ITEM_PATH" ]; then
         echo "Flattening single top-level directory: $(basename "$ITEM_PATH")"
         # Move contents up one level using a portable approach
-        # Use a temporary variable to track success
-        FLATTEN_SUCCESS=true
-        find "$ITEM_PATH" -mindepth 1 -maxdepth 1 -print0 | while IFS= read -r -d '' item; do
+        # Use process substitution or exec to avoid subshell issues
+        set +e  # Temporarily disable exit on error to handle failures properly
+        ERROR_OCCURRED=0
+        while IFS= read -r -d '' item; do
             if ! mv "$item" "$OUTPUT_DIR/"; then
                 echo "Error: Failed to move $item"
-                exit 1
+                ERROR_OCCURRED=1
+                break
             fi
-        done || FLATTEN_SUCCESS=false
+        done < <(find "$ITEM_PATH" -mindepth 1 -maxdepth 1 -print0)
+        set -e  # Re-enable exit on error
         
-        if [ "$FLATTEN_SUCCESS" = "false" ]; then
+        if [ "$ERROR_OCCURRED" -eq 1 ]; then
             echo "Error: Failed to flatten directory"
             exit 1
         fi
